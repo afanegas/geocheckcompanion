@@ -15,9 +15,9 @@ from geo_check_functions import geojson_to_boreholes, calculate_g_function, geoh
 # Set page configuration
 st.set_page_config(
     page_title="Geo-Check Companion",
-    page_icon="🌍",
+    page_icon="geo_check_icon.ico",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 # Default values for parameters
@@ -105,15 +105,31 @@ st.markdown("""
 # Main title
 st.markdown("<h1 class='main-header'>Geo-Check Companion</h1>", unsafe_allow_html=True)
 
-# Create tabs for different sections
-tab1, tab2, tab3 = st.tabs(["Erdwärmesonden & G-Funktion", "Wärmeentzugsanalyse", "Hilfe & Informationen"])
+# Create sidebar for navigation
+with st.sidebar:
+    st.markdown("<h2 class='section-header'>Navigation</h2>", unsafe_allow_html=True)
+    
+    # Add some spacing
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Navigation buttons
+    if st.button("Erdwärmesonden & G-Funktion", use_container_width=True):
+        st.session_state.current_page = "Erdwärmesonden & G-Funktion"
+    if st.button("Wärmeentzugsanalyse", use_container_width=True):
+        st.session_state.current_page = "Wärmeentzugsanalyse"
+    if st.button("Hilfe & Informationen", use_container_width=True):
+        st.session_state.current_page = "Hilfe & Informationen"
 
-# Tab 1: Borehole and G-Function
-with tab1:
+# Initialize current_page in session state if not exists
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = "Erdwärmesonden & G-Funktion"
+
+# Main content area
+if st.session_state.current_page == "Erdwärmesonden & G-Funktion":
     # File upload section first
     st.markdown("<h3 class='subsection-header'>Erdwärmesonden importieren</h3>", unsafe_allow_html=True)
-    uploaded_file = st.file_uploader("Wählen Sie eine GeoJSON-Datei aus", type=["geojson"])
-    
+    uploaded_file = st.file_uploader("Wählen Sie eine GeoJSON-Datei von Geo-Check-App aus", type=["geojson"])
+
     # Process uploaded file
     if uploaded_file is not None:
         try:
@@ -126,13 +142,13 @@ with tab1:
             
         except Exception as e:
             st.error(f"Fehler beim Lesen der Datei: {str(e)}")
-    
+
     # Parameters section with expandable sections
     st.markdown("<h3 class='subsection-header'>Parameter</h3>", unsafe_allow_html=True)
-    
+
     # Create columns for parameters
     col1, col2 = st.columns(2)
-    
+
     with col1:
         # Borehole parameters
         with st.expander("Erdwärmesonden-Parameter", expanded=True):
@@ -142,17 +158,17 @@ with tab1:
                                 help="Radius des Bohrlochs in Metern", key="r_b")
             st.number_input("Temperaturleitfähigkeit Erdreich (m²/s)", value=st.session_state.alpha, 
                                 format="%.2e", help="Temperaturleitfähigkeit des Untergrunds", key="alpha")
-    
+
     with col2:
         # G-Function parameters
         with st.expander("Darstellung der G-Funktion", expanded=False):
             st.number_input("Max. Simulationszeit (Jahre)", value=st.session_state.tmax_years, 
                                     min_value=1, step=100, help="Maximale Simulationszeit in Jahren", key="tmax_years")
             st.number_input("Anfangs-Zeitschritt (s)", value=st.session_state.dt, 
-                            min_value=100, step=100, help="Anfangs-Zeitschritt in Sekunden", key="dt")
+                                    min_value=100, step=100, help="Anfangs-Zeitschritt in Sekunden", key="dt")
             st.number_input("Anzahl Zeitschritte", value=st.session_state.Nt, 
-                            min_value=10, step=10, help="Anzahl der Zeitschritte für die Simulation", key="Nt")
-    
+                                    min_value=10, step=10, help="Anzahl der Zeitschritte für die Simulation", key="Nt")
+
     # Reset button
     if st.button("Standardwerte wiederherstellen", key="reset_g_function_button"):
         # Create a container for the reset message
@@ -168,7 +184,7 @@ with tab1:
         reset_g_function_values()
         reset_container.success("Parameter wurden auf Standardwerte zurückgesetzt!")
         st.rerun()
-    
+
     # G-Function calculation section
     st.markdown("<h3 class='subsection-header'>Erwärmesonden verarbeiten</h3>", unsafe_allow_html=True)
     if st.button("Erwärmesonden verarbeiten und G-Funktion berechnen"):
@@ -245,15 +261,13 @@ with tab1:
                     
                 except Exception as e:
                     st.error(f"Fehler bei der Berechnung der G-Funktion: {str(e)}")
-
-# Tab 2: Heat Extraction Analysis
-with tab2:
+elif st.session_state.current_page == "Wärmeentzugsanalyse":
     # Heat extraction parameters
     st.markdown("<h3 class='subsection-header'>Wärmeentzugs-Parameter</h3>", unsafe_allow_html=True)
-    
+
     # Create columns for parameters
     col1, col2 = st.columns(2)
-    
+
     with col1:
         with st.expander("Grundparameter", expanded=True):
             st.number_input("Wärmeleitfähigkeit (W/mK)", value=st.session_state.Lambda, 
@@ -264,7 +278,7 @@ with tab2:
             st.number_input("Max. Monatsanteil am jährlichen Wärmeentzug (%)", 
                                     value=st.session_state.monthly_share, min_value=1.0, max_value=100.0, step=1.0, 
                                     help="Prozentualer Anteil des Monats mit der größten Entzugsmenge am gesamten jährlichen Wärmeentzug [%] (Standard: 16%)", key="monthly_share")
-    
+
     with col2:
         with st.expander("Zusätzliche Parameter", expanded=False):
             st.number_input("Oberflächentemperatur (°C)", value=st.session_state.T_surface, 
@@ -273,11 +287,11 @@ with tab2:
             st.number_input("Geothermischer Wärmestromdichte (W/m²)", value=st.session_state.q_geo, 
                                 min_value=0.01, step=0.01, help="Geothermischer Wärmestromdichte in W/m²", key="q_geo")
             st.number_input("Bohrlochwiderstand (m*K/W)", value=st.session_state.R_b, 
-                            min_value=0.01, step=0.01, help="Bohrlochwiderstand", key="R_b")
+                                    min_value=0.01, step=0.01, help="Bohrlochwiderstand", key="R_b")
             st.number_input("Max. Temperaturdifferenz Wärmepumpenaustritt/Eintritt (°C)", 
-                                value=st.session_state.dT_Sole, min_value=1.0, step=0.5, 
-                                help="Größter Unterschied zwischen der Temperatur der Sole beim Austritt aus und beim Eintritt in die Wärmepumpe", key="dT_Sole")
-    
+                                    value=st.session_state.dT_Sole, min_value=1.0, step=0.5, 
+                                    help="Größter Unterschied zwischen der Temperatur der Sole beim Austritt aus und beim Eintritt in die Wärmepumpe", key="dT_Sole")
+
     # Reset button
     if st.button("Standardwerte wiederherstellen", key="reset_heat_extraction_button"):
         # Create a container for the reset message
@@ -293,10 +307,10 @@ with tab2:
         reset_heat_extraction_values()
         reset_container.success("Parameter wurden auf Standardwerte zurückgesetzt!")
         st.rerun()
-    
+
     # Heat extraction analysis section
     st.markdown("<h3 class='subsection-header'>Wärmeentzugsanalyse</h3>", unsafe_allow_html=True)
-    
+
     if st.button("Wärmeentzug berechnen"):
         if st.session_state.g_value_at_target is None:
             st.error("Bitte berechnen Sie zuerst die G-Funktion.")
@@ -344,67 +358,65 @@ with tab2:
                     
                 except Exception as e:
                     st.error(f"Fehler bei der Wärmeentzugsanalyse: {str(e)}")
-
-# Tab 3: Help section
-with tab3:
+else:  # Help section
     st.markdown("""
     ## Geo-Check Companion Hilfe
-    
+
     Diese Anwendung berechnet den maximal möglichen Wärmeentzug unter Einhaltung der Temperaturgrenzen gemäß VDI 4640. 
     Die Berechnung basiert auf der Methodik der vereinfachten Lastzerlegung, wie sie auch in GEO-HANDlight angewendet wird.
     Der Geo-Check Companion erweitert die Geo-Check-App und ermöglicht eine präzisere Analyse des Wärmeentzugs – insbesondere durch die genauere Berücksichtigung der gegenseitigen thermischen Beeinflussung benachbarter Erdwärmesonden mithilfe der G-Funktionsberechnung. Für eine gute Zusammenfassung der gesamten Methodik s. Referenz 1 - '2.3.2. Calculation of the technical geothermal potential and heat supply rate.'
-    
+
     ### Wie Sie dieses Tool verwenden
-    
+
     1. **Erdwärmesonden importieren**:
        - Wählen Sie eine GeoJSON-Datei mit geothermischen Punkten aus
        - Die GeoJSON-Datei sollte mit der Geo-Check-Anwendung erstellt worden sein
-    
+
     2. **G-Funktion berechnen**:
        - Klicken Sie auf "G-Funktion berechnen"
        - Die G-Funktion wird berechnet und visualisiert
-    
+
     3. **Wärmeentzugsanalyse**:
        - Klicken Sie auf "Wärmeentzug berechnen"
        - Die Wärmeentzugsanalyse wird durchgeführt und die Ergebnisse werden angezeigt
-    
+
     ### Berechnungsgrundlagen
-    
+
     Die Berechnungen in dieser Anwendung basieren auf folgenden Grundlagen:
-    
+
     1. **G-Funktion Berechnung**:
        - Die G-Funktion wird mit der pygfunction-Library berechnet
        - Die Berechnung basiert auf der uniformen Temperaturrandbedingung (uniform temperature boundary condition)
        - Der G-Funktionswert bei ln(t/ts)=2 wird für die Wärmeentzugsanalyse verwendet (ca. Endwert)
-    
+
     2. **Wärmeentzugsanalyse**:
        - Basierend auf GEO-HANDight und die VDI 4640 Richtlinie für die Auslegung von Erdwärmesondenfeldern
        - Gemäß VDI 4640 werden zwei Temperaturgrenzen berücksichtigt:
                 
          • Im Heizbetrieb soll die Eintrittstemperatur des Wärmeträgermediums in die Erdwärmesonde(n) im Monatsmittel 0 °C nicht unterschreiten.
-        
+         
          • Bei Spitzenlast soll diese Temperatur –5 °C nicht unterschreiten.
        - Die Berechnung basierend auf GEO-HANDlight berücksichtigt drei Hauptkomponenten (Lastzerlegung):
          
          • Grundlast: Konstanter Wärmeentzug über das Jahr
-        
+         
          • Periodische Last: Monatliche Schwankungen im Wärmeentzug
-        
+         
          • Spitzenlast: Kurzzeitiger Spitzenwärmeentzug
-    
+
     ### Eingabeparameter
-    
+
     **Erdwärmesonden-Parameter:**
     - Überdeckungshöhe (D): Tiefe von der Oberfläche bis zum Sondenkopf in Metern
     - Bohrlochradius (r_b): Radius des Bohrlochs in Metern
     - Temperaturleitfähigkeit Erdreich (alpha): Temperaturleitfähigkeit des Untergrunds in m²/s
-    
+
     **G-Funktion Parameter:**
     Betreffen nur die Darstellung der G-Funktion
     - Max. Simulationszeit: Maximale Simulationszeit in Jahren
     - Anfangs-Zeitschritt in Sekunden
     - Anzahl der Zeitschritte für die Simulation
-    
+
     **Wärmeentzugs-Parameter:**
     - Oberflächentemperatur (ϑ_surf) in °C
     - Wärmeleitfähigkeit des Untergrunds (λ_E) in W/mK
@@ -413,20 +425,20 @@ with tab3:
     - Sondenwiderstand (R_b) in m*K/W
     - Max. Temperaturdifferenz Wärmepumpenaustritt/Eintritt in °C
     - Monatsanteil: Maximaler Monatsanteil am jährlichen Wärmeentzug [%] (Standard: 16%)
-    
+
     ### Ausgabeparameter
-    
+
     - Maximale spezifische Entzugsleistung: Maximale Wärmeentzugsrate pro Meter Erdwärmesonde in W/m (spez. q_EWS_H)
     - Maximale Entzugsleistung: Maximale Leistung des Sondenfelds in kW (q_EWS_H)
     - Maximaler jährlicher Wärmeentzug in kWh
-    
+
     ### Referenzen
-    
+
     Die Basen für die Berechnungen in der Geo-Check-Begleiter können in den folgenden Papieren gelesen werden:
-    
+
     1. Cimmino, M., & Bernier, M. (2021). A new approach to the calculation of the g-function for geothermal borehole fields. Applied Energy, 283, 116344. https://www.sciencedirect.com/science/article/pii/S096014812101822X
-    
+
     2. Hochschule Biberach. (2022). GEO-HANDlight Version 5.0 – Benutzeranleitung (DocV 5.0). Hochschule Biberach. https://innosued.de/energie/geothermie-software-2/
-    
+
     3. Cimmino, M., & Cook, J.C. (2022). pygfunction 2.2: https://pygfunction.readthedocs.io/en/stable/modules/gfunction.html
     """) 
