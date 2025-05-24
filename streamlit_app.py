@@ -154,7 +154,7 @@ if st.session_state.current_page == "Erdwärmesonden & G-Funktion":
         with st.expander("Erdwärmesonden-Parameter", expanded=True):
             st.number_input("Überdeckungshöhe (m)", value=st.session_state.D, min_value=0.0, step=0.1, 
                                 help="Tiefe von der Oberfläche bis zum Sondenkopf in Metern", key="D")
-            st.number_input("Bohrlochradius (m)", value=st.session_state.r_b, min_value=0.01, step=0.005, 
+            st.number_input("Bohrlochradius (m)", value=st.session_state.r_b, format="%.3f", min_value=0.01, step=0.005, 
                                 help="Radius des Bohrlochs in Metern", key="r_b")
             st.number_input("Temperaturleitfähigkeit Erdreich (m²/s)", value=st.session_state.alpha, 
                                 format="%.2e", help="Temperaturleitfähigkeit des Untergrunds", key="alpha")
@@ -216,51 +216,51 @@ if st.session_state.current_page == "Erdwärmesonden & G-Funktion":
                     st.session_state.ts = ts
                     
                     # Generate plots
-                    borehole_field_plot = plot_borehole_field(field)
-                    g_function_plot = plot_g_function(time, g_function, g_value_at_target, ts)
-                    st.session_state.borehole_field_plot = borehole_field_plot
-                    st.session_state.g_function_plot = g_function_plot
+                    st.session_state.borehole_field_plot = plot_borehole_field(field)
+                    st.session_state.g_function_plot = plot_g_function(time, g_function, g_value_at_target, ts)
                     
                     # Display success message
-                    st.success("G-Funktion erfolgreich berechnet! Sie können weiter zum Reiter '**Wärmeentzungsanalyse**' gehen.")
-                    
-                    # Display results
-                    st.markdown("<h4>Berechnungsergebnisse:</h4>", unsafe_allow_html=True)
-                    
-                    # Calculate average depth
-                    avg_depth = sum(b.H for b in field) / len(field)
-                    
-                    # Display results in columns
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.markdown("<p class='result-text'>Erdwärmesondenfeld Information:</p>", unsafe_allow_html=True)
-                        st.write(f"Anzahl der Erdwärmesonden: {len(field)}")
-                        st.write(f"Durchschnittliche Tiefe: {avg_depth:.2f} m")
-                        st.write(f"G-Funktionswert bei ln(t/ts) = 2: {g_value_at_target:.4f}")
-                    
-                    with col2:
-                        st.markdown("<p class='result-text'>Charakteristische Zeit:</p>", unsafe_allow_html=True)
-                        st.write(f"ts = {ts:.2e} Sekunden")
-                        st.write(f"ts = {ts/(365*24*3600):.2f} Jahre")
-                    
-                    # Display plots with reduced size (60%)
-                    st.markdown("<h4>Erdwärmesondenfeld Layout:</h4>", unsafe_allow_html=True)
-                    col1, col2, col3 = st.columns([1, 3, 1])
-                    with col2:
-                        st.image(st.session_state.borehole_field_plot, use_container_width=True)
-                    
-                    st.markdown("<h4>G-Funktion:</h4>", unsafe_allow_html=True)
-                    col1, col2, col3 = st.columns([1, 3, 1])
-                    with col2:
-                        st.image(st.session_state.g_function_plot, use_container_width=True)
-                    
-                    # Display point information
-                    with st.expander("Erdwärmesonden Details anzeigen"):
-                        st.markdown("<h4>Erdwärmesonden Koordinaten und Tiefen:</h4>", unsafe_allow_html=True)
-                        st.dataframe(point_info)
+                    st.success("G-Funktion erfolgreich berechnet! Sie können weiter zum Reiter '**Wärmeentzugsanalyse**' gehen.")
                     
                 except Exception as e:
                     st.error(f"Fehler bei der Berechnung der G-Funktion: {str(e)}")
+
+    # Display results if they exist in session state
+    if st.session_state.field is not None and st.session_state.g_function is not None:
+        st.markdown("<h4>Berechnungsergebnisse:</h4>", unsafe_allow_html=True)
+        
+        # Calculate average depth
+        avg_depth = sum(b.H for b in st.session_state.field) / len(st.session_state.field)
+        
+        # Display results in columns
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("<p class='result-text'>Erdwärmesondenfeld Information:</p>", unsafe_allow_html=True)
+            st.write(f"Anzahl der Erdwärmesonden: {len(st.session_state.field)}")
+            st.write(f"Durchschnittliche Tiefe: {avg_depth:.2f} m")
+            st.write(f"G-Funktionswert bei ln(t/ts) = 2: {st.session_state.g_value_at_target:.4f}")
+        
+        with col2:
+            st.markdown("<p class='result-text'>Charakteristische Zeit:</p>", unsafe_allow_html=True)
+            st.write(f"ts = {st.session_state.ts:.2e} Sekunden")
+            st.write(f"ts = {st.session_state.ts/(365*24*3600):.2f} Jahre")
+        
+        # Display plots with reduced size (60%)
+        st.markdown("<h4>Erdwärmesondenfeld Layout:</h4>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 3, 1])
+        with col2:
+            st.image(st.session_state.borehole_field_plot, use_container_width=True)
+        
+        st.markdown("<h4>G-Funktion:</h4>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 3, 1])
+        with col2:
+            st.image(st.session_state.g_function_plot, use_container_width=True)
+        
+        # Display point information
+        with st.expander("Erdwärmesonden Details anzeigen"):
+            st.markdown("<h4>Erdwärmesonden Koordinaten und Tiefen:</h4>", unsafe_allow_html=True)
+            st.dataframe(st.session_state.point_info)
+
 elif st.session_state.current_page == "Wärmeentzugsanalyse":
     # Heat extraction parameters
     st.markdown("<h3 class='subsection-header'>Wärmeentzugs-Parameter</h3>", unsafe_allow_html=True)
@@ -284,7 +284,7 @@ elif st.session_state.current_page == "Wärmeentzugsanalyse":
             st.number_input("Oberflächentemperatur (°C)", value=st.session_state.T_surface, 
                                     min_value=-10.0, max_value=30.0, step=0.1, 
                                     help="Oberflächentemperatur in Celsius", key="T_surface")
-            st.number_input("Geothermischer Wärmestromdichte (W/m²)", value=st.session_state.q_geo, 
+            st.number_input("Geothermischer Wärmestromdichte (W/m²)", value=st.session_state.q_geo, format="%.3f",
                                 min_value=0.01, step=0.01, help="Geothermischer Wärmestromdichte in W/m²", key="q_geo")
             st.number_input("Bohrlochwiderstand (m*K/W)", value=st.session_state.R_b, 
                                     min_value=0.01, step=0.01, help="Bohrlochwiderstand", key="R_b")
@@ -308,9 +308,7 @@ elif st.session_state.current_page == "Wärmeentzugsanalyse":
         reset_container.success("Parameter wurden auf Standardwerte zurückgesetzt!")
         st.rerun()
 
-    # Heat extraction analysis section
-    st.markdown("<h3 class='subsection-header'>Wärmeentzugsanalyse</h3>", unsafe_allow_html=True)
-
+    # Wärmeentzug berechnen section
     if st.button("Wärmeentzug berechnen"):
         if st.session_state.g_value_at_target is None:
             st.error("Bitte berechnen Sie zuerst die G-Funktion.")
@@ -336,28 +334,30 @@ elif st.session_state.current_page == "Wärmeentzugsanalyse":
                         monthly_share=st.session_state.monthly_share / 100  # Convert percentage to decimal
                     )
                     
+                    # Store results in session state
+                    st.session_state.heat_extraction_results = results
+                    
                     # Display success message
                     st.success("Wärmeentzugsanalyse erfolgreich durchgeführt!")
-                    
-                    # Display results
-                    st.markdown("<h4>Wärmeentzugs-Ergebnisse:</h4>", unsafe_allow_html=True)
-                    
-                    # Display results in columns
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        #st.markdown("<p class='result-text'>Maximale Entzugsleistung:</p>", unsafe_allow_html=True)
-                        st.write(f"Maximale spezifische Entzugsleistung: {results['q_ews_max'] * 1000:.2f} W/m")
-                        st.write(f"Maximale Entzugsleistung: {results['P_EWS_max']:.2f} kW")
-                        st.write(f"Maximaler jährlicher Wärmeentzug: {results['E_max']:.2f} kWh")
-                    
-                    # Display calculation conditions
-                    #st.markdown("<h4>Berechnungsbedingungen:</h4>", unsafe_allow_html=True)
-                    #st.write("- Basierend auf Geohand-Light und VDI 4640 Richtlinien für die Auslegung von Erdwärmesondenfeldern")
-                    #st.write("- Die Vorlauftemperatur darf nicht unter -5°C fallen")
-                    #st.write("- Die monatliche Durchschnittsvorlauftemperatur darf nicht unter 0°C fallen")
-                    
+                
                 except Exception as e:
                     st.error(f"Fehler bei der Wärmeentzugsanalyse: {str(e)}")
+
+    # Display results if they exist in session state
+    if "heat_extraction_results" in st.session_state:
+        results = st.session_state.heat_extraction_results
+        
+        st.markdown("<h4>Wärmeentzugs-Ergebnisse:</h4>", unsafe_allow_html=True)
+        
+        # Display results in columns
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write(f"Maximale spezifische Entzugsleistung: {results['q_ews_max'] * 1000:.2f} W/m")
+            st.write(f"Maximale Entzugsleistung: {results['P_EWS_max']:.2f} kW")
+            st.write(f"Maximaler jährlicher Wärmeentzug: {results['E_max']:.2f} kWh")
+            st.write(f"Minimale Eintrittstemperatur im Spitzenlastfall: {results['T_in']:.2f} °C")
+            st.write(f"Minimale Eintrittstemperatur im Monatsdurchschnitt: {results['T_per']:.2f} °C")
+
 else:  # Help section
     st.markdown("""
     ## Geo-Check Companion Hilfe
@@ -441,4 +441,4 @@ else:  # Help section
     2. Hochschule Biberach. (2022). GEO-HANDlight Version 5.0 – Benutzeranleitung (DocV 5.0). Hochschule Biberach. https://innosued.de/energie/geothermie-software-2/
 
     3. Cimmino, M., & Cook, J.C. (2022). pygfunction 2.2: https://pygfunction.readthedocs.io/en/stable/modules/gfunction.html
-    """) 
+    """)
