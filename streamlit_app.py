@@ -1,3 +1,18 @@
+"""
+Geo-Check Companion - Streamlit App
+==================
+
+Author: Alejandro Fanegas
+Version: 1.0.0 (2025-05-25)
+License: MIT License
+
+This application is a companion tool for the Geo-Check App, designed to calculate and analyze
+geothermal potential using G-functions and heat extraction calculations. It provides a user-friendly
+interface for importing borehole data, calculating G-functions, and performing detailed heat
+extraction analysis according to VDI 4640 standards.
+
+"""
+
 import streamlit as st
 import json
 import pygfunction as gt
@@ -10,7 +25,7 @@ import os
 from PIL import Image
 import re
 import io
-from geo_check_functions import geojson_to_boreholes, calculate_g_function, geohand_clone, plot_borehole_field, plot_g_function
+from geo_check_functions import geojson_to_boreholes, calculate_g_function, geohand_clone, geohand_clone_custom, plot_borehole_field, plot_g_function
 
 # Set page configuration
 st.set_page_config(
@@ -115,8 +130,10 @@ with st.sidebar:
     # Navigation buttons
     if st.button("Erdwärmesonden & G-Funktion", use_container_width=True):
         st.session_state.current_page = "Erdwärmesonden & G-Funktion"
-    if st.button("Wärmeentzugsanalyse", use_container_width=True):
-        st.session_state.current_page = "Wärmeentzugsanalyse"
+    if st.button("Geothermisches Potenzial", use_container_width=True):
+        st.session_state.current_page = "Geothermisches Potenzial"
+    if st.button("Manuelle Berechnung", use_container_width=True):
+        st.session_state.current_page = "Manuelle Berechnung"
     if st.button("Hilfe & Informationen", use_container_width=True):
         st.session_state.current_page = "Hilfe & Informationen"
 
@@ -202,6 +219,14 @@ if st.session_state.current_page == "Erdwärmesonden & G-Funktion":
                     st.session_state.field = field
                     st.session_state.point_info = point_info
                     
+                    # Calculate EWS_length (average depth) and EWS_count from the field
+                    EWS_length = sum(b.H for b in st.session_state.field) / len(st.session_state.field)  # Average depth of boreholes
+                    EWS_count = len(st.session_state.field)  # Number of boreholes
+                    
+                    # Store these values in session state for use in manual calculations
+                    st.session_state.EWS_length = EWS_length
+                    st.session_state.EWS_count = EWS_count
+                    
                     # Calculate the g-function
                     time, g_function, g_value_at_target, ts = calculate_g_function(
                         field,
@@ -220,7 +245,7 @@ if st.session_state.current_page == "Erdwärmesonden & G-Funktion":
                     st.session_state.g_function_plot = plot_g_function(time, g_function, g_value_at_target, ts)
                     
                     # Display success message
-                    st.success("G-Funktion erfolgreich berechnet! Sie können weiter zum Reiter '**Wärmeentzugsanalyse**' gehen.")
+                    st.success("G-Funktion erfolgreich berechnet! Sie können weiter zum Reiter '**Geothermisches Potenzial**' gehen.")
                     
                 except Exception as e:
                     st.error(f"Fehler bei der Berechnung der G-Funktion: {str(e)}")
@@ -261,9 +286,14 @@ if st.session_state.current_page == "Erdwärmesonden & G-Funktion":
             st.markdown("<h4>Erdwärmesonden Koordinaten und Tiefen:</h4>", unsafe_allow_html=True)
             st.dataframe(st.session_state.point_info)
 
-elif st.session_state.current_page == "Wärmeentzugsanalyse":
+elif st.session_state.current_page == "Geothermisches Potenzial":
     # Heat extraction parameters
     st.markdown("<h3 class='subsection-header'>Wärmeentzugs-Parameter</h3>", unsafe_allow_html=True)
+
+    # Function to clear heat extraction results
+    def clear_heat_extraction_results():
+        if "heat_extraction_results" in st.session_state:
+            del st.session_state.heat_extraction_results
 
     # Create columns for parameters
     col1, col2 = st.columns(2)
@@ -271,26 +301,33 @@ elif st.session_state.current_page == "Wärmeentzugsanalyse":
     with col1:
         with st.expander("Grundparameter", expanded=True):
             st.number_input("Wärmeleitfähigkeit (W/mK)", value=st.session_state.Lambda, 
-                                min_value=0.1, step=0.1, help="Wärmeleitfähigkeit des Erdreichs", key="Lambda")
+                                min_value=0.1, step=0.1, help="Wärmeleitfähigkeit des Erdreichs", key="Lambda",
+                                on_change=clear_heat_extraction_results)
             st.number_input("Vollaststunden Heizung (h)", value=st.session_state.Usage, 
                                 min_value=100, step=100, 
-                                help="Äquivalente Anzahl der Stunden, die die Anlage mit Nennleistung im Heizbetrieb arbeitet", key="Usage")
+                                help="Äquivalente Anzahl der Stunden, die die Anlage mit Nennleistung im Heizbetrieb arbeitet", key="Usage",
+                                on_change=clear_heat_extraction_results)
             st.number_input("Max. Monatsanteil am jährlichen Wärmeentzug (%)", 
                                     value=st.session_state.monthly_share, min_value=1.0, max_value=100.0, step=1.0, 
-                                    help="Prozentualer Anteil des Monats mit der größten Entzugsmenge am gesamten jährlichen Wärmeentzug [%] (Standard: 16%)", key="monthly_share")
+                                    help="Prozentualer Anteil des Monats mit der größten Entzugsmenge am gesamten jährlichen Wärmeentzug [%] (Standard: 16%)", key="monthly_share",
+                                    on_change=clear_heat_extraction_results)
 
     with col2:
         with st.expander("Zusätzliche Parameter", expanded=False):
             st.number_input("Oberflächentemperatur (°C)", value=st.session_state.T_surface, 
                                     min_value=-10.0, max_value=30.0, step=0.1, 
-                                    help="Oberflächentemperatur in Celsius", key="T_surface")
+                                    help="Oberflächentemperatur in Celsius", key="T_surface",
+                                    on_change=clear_heat_extraction_results)
             st.number_input("Geothermischer Wärmestromdichte (W/m²)", value=st.session_state.q_geo, format="%.3f",
-                                min_value=0.01, step=0.01, help="Geothermischer Wärmestromdichte in W/m²", key="q_geo")
+                                min_value=0.01, step=0.01, help="Geothermischer Wärmestromdichte in W/m²", key="q_geo",
+                                on_change=clear_heat_extraction_results)
             st.number_input("Bohrlochwiderstand (m*K/W)", value=st.session_state.R_b, 
-                                    min_value=0.01, step=0.01, help="Bohrlochwiderstand", key="R_b")
+                                    min_value=0.01, step=0.01, help="Bohrlochwiderstand", key="R_b",
+                                    on_change=clear_heat_extraction_results)
             st.number_input("Max. Temperaturdifferenz Wärmepumpenaustritt/Eintritt (°C)", 
                                     value=st.session_state.dT_Sole, min_value=1.0, step=0.5, 
-                                    help="Größter Unterschied zwischen der Temperatur der Sole beim Austritt aus und beim Eintritt in die Wärmepumpe", key="dT_Sole")
+                                    help="Größter Unterschied zwischen der Temperatur der Sole beim Austritt aus und beim Eintritt in die Wärmepumpe", key="dT_Sole",
+                                    on_change=clear_heat_extraction_results)
 
     # Reset button
     if st.button("Standardwerte wiederherstellen", key="reset_heat_extraction_button"):
@@ -347,7 +384,7 @@ elif st.session_state.current_page == "Wärmeentzugsanalyse":
     if "heat_extraction_results" in st.session_state:
         results = st.session_state.heat_extraction_results
         
-        st.markdown("<h4>Wärmeentzugs-Ergebnisse:</h4>", unsafe_allow_html=True)
+        st.markdown("<h4>Maximale Wärmeentzug:</h4>", unsafe_allow_html=True)
         
         # Display results in columns
         col1, col2 = st.columns(2)
@@ -357,6 +394,150 @@ elif st.session_state.current_page == "Wärmeentzugsanalyse":
             st.write(f"Maximaler jährlicher Wärmeentzug: {results['E_max']:.2f} kWh")
             st.write(f"Minimale Eintrittstemperatur im Spitzenlastfall: {results['T_in']:.2f} °C")
             st.write(f"Minimale Eintrittstemperatur im Monatsdurchschnitt: {results['T_per']:.2f} °C")
+
+elif st.session_state.current_page == "Manuelle Berechnung":
+    st.markdown("<h3 class='subsection-header'>Manuelle Wärmeentzugs-Berechnung</h3>", unsafe_allow_html=True)
+
+    # Check if geothermal potential has been calculated
+    if "heat_extraction_results" not in st.session_state:
+        st.error("Bitte berechnen Sie zuerst das geothermale Potenzial im Reiter 'Geothermisches Potenzial'.")
+        st.stop()
+
+    # Function to perform calculation
+    def perform_calculation():
+        try:
+            # Call the geohand_clone_custom function with the defined parameters
+            results = geohand_clone_custom(
+                T_surface=T_surface,
+                EWS_length=EWS_length,
+                EWS_count=EWS_count,
+                Lambda=Lambda,
+                q_geo=q_geo,
+                GVal=GVal,
+                E_max=E_max,
+                P_EWS_max=P_EWS_max,
+                r_b=r_b,
+                R_b=R_b,
+                dT_Sole=dT_Sole,
+                monthly_share=monthly_share / 100  # Convert percentage to decimal
+            )
+            
+            # Store results in session state
+            st.session_state.manual_heat_extraction_results = results
+            
+        except Exception as e:
+            st.error(f"Fehler bei der Wärmeentzugsanalyse: {str(e)}")
+
+    # Create columns for parameters
+    col1, col2 = st.columns(2)
+
+    with col1:
+        with st.expander("Grundparameter", expanded=True):
+            # Pre-fill values from previous calculation if available
+            
+            P_EWS_max = st.number_input("Maximale Entzugsleistung (kW)", 
+                value=st.session_state.get("heat_extraction_results", {}).get("P_EWS_max", 10.0),
+                min_value=0.1, step=0.1,
+                #help="Maximale Entzugsleistung in kW",
+                on_change=perform_calculation)
+
+            E_max = st.number_input("Maximaler jährlicher Wärmeentzug (kWh)", 
+                value=st.session_state.get("heat_extraction_results", {}).get("E_max", 10000.0),
+                min_value=0.0, step=100.0,
+                #help="Maximaler jährlicher Wärmeentzug in kWh",
+                on_change=perform_calculation)
+            
+            EWS_length = st.number_input("Erdwärmesondenlänge (m)", 
+                value=st.session_state.get("EWS_length", 100.0),
+                min_value=10.0, step=1.0,
+                help="Bei einer Änderung des Sondenfelds, bitte die G-Funktion anpassen",
+                on_change=perform_calculation)
+            
+            EWS_count = st.number_input("Anzahl Erdwärmesonden", 
+                value=st.session_state.get("EWS_count", 1),
+                min_value=1, step=1,
+                help="Bei einer Änderung des Sondenfelds, bitte die G-Funktion anpassen",
+                on_change=perform_calculation)
+            
+            GVal = st.number_input("G-Funktionswert", 
+                value=st.session_state.get("g_value_at_target", 0.0),
+                format="%.4f", step=0.0001,
+                #help="G-Funktionswert bei ln(t/ts)=2",
+                on_change=perform_calculation)
+                        
+            Lambda = st.number_input("Wärmeleitfähigkeit (W/mK)", 
+                value=st.session_state.get("Lambda", 2.5),
+                min_value=0.1, step=0.1,
+                #help="Wärmeleitfähigkeit des Erdreichs",
+                on_change=perform_calculation)
+
+    with col2:
+        with st.expander("Zusätzliche Parameter", expanded=False):
+                        
+            dT_Sole = st.number_input("Max. Temperaturdifferenz Wärmepumpenaustritt/Eintritt (°C)", 
+                value=st.session_state.get("dT_Sole", 4.0),
+                min_value=1.0, step=0.5,
+                #help="Größter Unterschied zwischen der Temperatur der Sole beim Austritt aus und beim Eintritt in die Wärmepumpe",
+                on_change=perform_calculation)
+            
+            monthly_share = st.number_input("Max. Monatsanteil am jährlichen Wärmeentzug (%)", 
+                value=st.session_state.get("monthly_share", 16.0),
+                min_value=1.0, max_value=100.0, step=1.0,
+                #help="Prozentualer Anteil des Monats mit der größten Entzugsmenge am gesamten jährlichen Wärmeentzug [%]",
+                on_change=perform_calculation)
+            
+            T_surface = st.number_input("Oberflächentemperatur (°C)", 
+                value=st.session_state.get("T_surface", 11.0),
+                min_value=-10.0, max_value=30.0, step=0.1, 
+                #help="Oberflächentemperatur in Celsius",
+                on_change=perform_calculation)
+                        
+            q_geo = st.number_input("Geothermischer Wärmestromdichte (W/m²)", 
+                value=st.session_state.get("q_geo", 0.065),
+                format="%.3f", min_value=0.01, step=0.01,
+                #help="Geothermischer Wärmestromdichte in W/m²",
+                on_change=perform_calculation)
+
+            r_b = st.number_input("Bohrlochradius (m)", 
+                value=st.session_state.get("r_b", 0.075),
+                format="%.3f", min_value=0.01, step=0.005,
+                help="Bei einer Änderung des Sondenfelds, bitte die G-Funktion anpassen",
+                on_change=perform_calculation)
+            
+            R_b = st.number_input("Bohrlochwiderstand (m*K/W)", 
+                value=st.session_state.get("R_b", 0.1),
+                min_value=0.01, step=0.01,
+                #help="Bohrlochwiderstand",
+                on_change=perform_calculation)
+
+
+
+    # Always perform calculation when entering this tab
+    perform_calculation()
+
+    # Display results if they exist in session state
+    if "manual_heat_extraction_results" in st.session_state:
+        results = st.session_state.manual_heat_extraction_results
+        
+        st.markdown("<h4>Wärmeentzugs-Ergebnisse:</h4>", unsafe_allow_html=True)
+        
+        # Display results in columns
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write(f"Maximale spezifische Entzugsleistung: {results['q_ews_max'] * 1000:.2f} W/m")
+            st.write(f"Minimale Eintrittstemperatur im Spitzenlastfall: {results['T_in']:.2f} °C")
+            st.write(f"Minimale Eintrittstemperatur im Monatsdurchschnitt: {results['T_per']:.2f} °C")
+            st.markdown("Lastkomponenten:")
+            st.markdown("&nbsp;&nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp;&nbsp;Spezifische Jahres-Grundlast: {:.2f} W/m".format(results['Grundlast']))
+            st.markdown("&nbsp;&nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp;&nbsp;Spezifische periodische Jahresgang: {:.2f} W/m".format(results['ZyklischeLast']))
+            st.markdown("&nbsp;&nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp;&nbsp;Spezifische Lastspitze: {:.2f} W/m".format(results['SpitzenLast']))
+
+        # Check temperature restrictions
+        if results['T_in'] < -5:
+            st.warning("⚠️ Die minimale Eintrittstemperatur im Spitzenlastfall unterschreitet den Grenzwert von -5°C gemäß VDI 4640!")
+        
+        if results['T_per'] < 0:
+            st.warning("⚠️ Die minimale Eintrittstemperatur im Monatsdurchschnitt unterschreitet den Grenzwert von 0°C gemäß VDI 4640!")
 
 else:  # Help section
     st.markdown("""
@@ -371,14 +552,19 @@ else:  # Help section
     1. **Erdwärmesonden importieren**:
        - Wählen Sie eine GeoJSON-Datei mit geothermischen Punkten aus
        - Die GeoJSON-Datei sollte mit der Geo-Check-Anwendung erstellt worden sein
-
-    2. **G-Funktion berechnen**:
-       - Klicken Sie auf "G-Funktion berechnen"
+       - Klicken Sie auf "Erwärmesonden verarbeiten und G-Funktion berechnen"
        - Die G-Funktion wird berechnet und visualisiert
 
-    3. **Wärmeentzugsanalyse**:
+    2. **Geothermisches Potenzial**:
+       - Nach der G-Funktionsberechnung können Sie hier das maximale geothermische Potenzial berechnen
        - Klicken Sie auf "Wärmeentzug berechnen"
        - Die Wärmeentzugsanalyse wird durchgeführt und die Ergebnisse werden angezeigt
+
+    3. **Manuelle Berechnung**:
+       - Hier können Sie eine manuelle Wärmeentzugsanalyse mit angepassten Parametern durchführen
+       - Die Werte werden zuerst automatisch aus der Potenzialberechnung übernommen
+       - Sie können alle Parameter individuell anpassen
+       - Die Berechnung erfolgt automatisch bei jeder Parameteränderung
 
     ### Berechnungsgrundlagen
 
@@ -431,6 +617,12 @@ else:  # Help section
     - Maximale spezifische Entzugsleistung: Maximale Wärmeentzugsrate pro Meter Erdwärmesonde in W/m (spez. q_EWS_H)
     - Maximale Entzugsleistung: Maximale Leistung des Sondenfelds in kW (q_EWS_H)
     - Maximaler jährlicher Wärmeentzug in kWh
+    - Minimale Eintrittstemperatur im Spitzenlastfall in °C
+    - Minimale Eintrittstemperatur im Monatsdurchschnitt in °C
+    - Lastkomponenten:
+      - Spezifische Jahres-Grundlast in W/m
+      - Spezifische periodische Jahresgang in W/m
+      - Spezifische Lastspitze in W/m
 
     ### Referenzen
 
