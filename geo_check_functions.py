@@ -1,3 +1,17 @@
+"""
+Geo-Check Companion - Geo-Check Functions
+
+Author: Alejandro Fanegas
+Version: 1.0.0 (2025-05-25)
+License: MIT License
+
+This application is a companion tool for the Geo-Check App, designed to calculate and analyze
+geothermal potential using G-functions and heat extraction calculations. It provides a user-friendly
+interface for importing borehole data, calculating G-functions, and performing detailed heat
+extraction analysis according to VDI 4640 standards.
+
+"""
+
 import json
 import pygfunction as gt
 import matplotlib.pyplot as plt
@@ -219,6 +233,103 @@ def geohand_clone(T_surface, EWS_length, EWS_count, Lambda, q_geo, GVal, Usage=1
         "q_ews_max": q_ews_max_1,
         "P_EWS_max": q_ews_max_1 * EWS_count * EWS_length,  # Maximum power in kW
         "E_max": q_ews_max_1 * EWS_count * EWS_length * Usage,  # Maximum annual energy in kWh
+        "Grundlast": Grundlast,
+        "ZyklischeLast": ZyklischeLast,
+        "SpitzenLast": SpitzenLast,
+        "T_in": T_in,  # Minimal inlet temperature
+        "T_per": T_per,  # Monthly average inlet temperature
+        "T_soil": T_soil,
+        "R_stat": R_stat,
+        "R_cycl": R_cycl,
+        "R_max": R_max,
+        "dT_stat": dT_stat,
+        "dT_cycl": dT_cycl,
+        "dT_max": dT_max
+    }
+
+def geohand_clone_custom(T_surface, EWS_length, EWS_count, Lambda, q_geo, GVal, E_max, P_EWS_max, r_b=0.075, R_b=0.1, dT_Sole=4, monthly_share=0.16):
+    """
+    Custom version of geohand_clone. Calculate geothermal parameters for a borehole field based on Geohand-Light and VDI 4640 guidelines.
+    Args:
+        T_surface (float): Surface temperature in °C
+        EWS_length (float): Length of each borehole in meters
+        EWS_count (int): Number of boreholes in the field
+        Lambda (float): Thermal conductivity of the ground in W/mK
+        q_geo (float): Geothermal heat flow in W/m²
+        GVal (float): G-function value at ln(t/ts)=2
+        E_max (float): Maximum annual energy extraction in kWh
+        P_EWS_max (float): Maximum power of the borehole field in kW
+        r_b (float, optional): Borehole radius in meters. Defaults to 0.075.
+        R_b (float, optional): Effective borehole thermal resistance in m*K/W. Defaults to 0.1.
+        dT_Sole (float, optional): Maximum difference between inlet and outlet temperature in °C. Defaults to 4.
+        monthly_share (float, optional): Maximaler Monatsanteil am jährlichen Wärmeentzug [%]. Defaults to 0.16.
+    Returns:
+        dict: Dictionary containing the following results:
+            - q_ews_max: Maximum heat extraction rate in kW/m
+            - P_EWS_max: Maximum power of the borehole field in kW
+            - E_max: Maximum annual energy extraction in kWh
+            - Grundlast: Base load in W/m
+            - ZyklischeLast: Cyclic load in W/m
+            - SpitzenLast: Peak load in W/m
+            - T_in: Minimum inlet temperature in °C
+            - T_per: Monthly average inlet temperature in °C
+    """
+    ### Calculate Usage and q_ews_max ###
+    Usage = E_max / P_EWS_max  # Calculate Usage from E_max and P_EWS_max
+    q_ews_max = P_EWS_max / (EWS_count * EWS_length)  # Calculate q_ews_max from P_EWS_max
+      
+    ### Internal parameters to calculate ####
+    T_soil = T_surface + ((EWS_length * q_geo) / (2 * Lambda))  # Temperature of the soil
+    rb_h = r_b / EWS_length
+    g_corr = GVal
+    R_stat = 1 / (2 * Lambda * math.pi) * g_corr
+
+    Eindring = math.sqrt(Lambda / (2.18 * 1000000) * (8760 * 3600) / math.pi)
+    R_cycl = 1 / (2 * math.pi * Lambda) * math.sqrt((math.log(2 / (r_b * math.sqrt(2) / Eindring)) - 0.5722)**2 + math.pi**2 / 16)
+
+    R_max = 1 / (2 * math.pi * Lambda) * (math.log(math.sqrt(4 * Lambda / (2.18 * 1000000) * 24 * 3600) / r_b) - 0.5722 / 2)
+
+    # Function to calculate T_in for a given q_ews_max
+    def fun_T_in(q_ews_max):
+        return (T_soil + (
+            (-(q_ews_max * EWS_length * EWS_count * Usage) * 1000 / (EWS_length * EWS_count * 8760)) * (R_b + R_stat) +
+            (-(((q_ews_max * EWS_length * EWS_count * Usage) * monthly_share) * 1000 / (EWS_length * EWS_count * 730) -
+              ((q_ews_max * EWS_length * EWS_count * Usage) * 1000 / (EWS_length * EWS_count * 8760)))) * (R_cycl + R_b) +
+            (-((EWS_length * EWS_count * q_ews_max) * 1000 / (EWS_length * EWS_count) - 
+              ((q_ews_max * EWS_length * EWS_count * Usage) * 1000 / (EWS_length * EWS_count * 8760)) -
+              (((q_ews_max * EWS_length * EWS_count * Usage) * monthly_share) * 1000 / (EWS_length * EWS_count * 730) - 
+               ((q_ews_max * EWS_length * EWS_count * Usage) * 1000 / (EWS_length * EWS_count * 8760))))) * (R_b + R_max))) - (dT_Sole / 2)
+
+    # Calculate T_in
+    T_in = fun_T_in(q_ews_max)
+    
+    # Function for calculating the monthly average inlet temperature
+    def fun_T_per(q_ews_max):
+      return (T_soil -(((q_ews_max * EWS_length * EWS_count * Usage * 1000) / (EWS_length * EWS_count * 8760))) * (R_b + R_stat)
+              + -(((q_ews_max * EWS_length * EWS_count * Usage * 1000) * monthly_share) / (730 * EWS_length * EWS_count) - 
+                  ((q_ews_max * EWS_length * EWS_count * Usage * 1000) / (EWS_length * EWS_count * 8760))) * (R_cycl + R_b)
+              - dT_Sole / 2)
+
+    # Calculate T_per
+    T_per = fun_T_per(q_ews_max)
+
+    # Calculate the three main cyclic components: Base load (Grundlast), cyclic load (ZyklischeLast) and peak load (SpitzenLast)
+    Grundlast = ((q_ews_max * EWS_length * EWS_count * Usage * 1000) / (EWS_length * EWS_count * 8760))
+    ZyklischeLast = (((q_ews_max * EWS_length * EWS_count * Usage * 1000) * monthly_share) / (730 * EWS_length * EWS_count) - 
+                    ((q_ews_max * EWS_length * EWS_count * Usage * 1000) / (EWS_length * EWS_count * 8760)))
+    SpitzenLast = (EWS_length * EWS_count * q_ews_max * 1000) / ((EWS_length * EWS_count)) - Grundlast - ZyklischeLast
+
+    # Calculate temperature changes due to the loads
+    dT_stat = -Grundlast * (R_b + R_stat)
+    dT_cycl = -ZyklischeLast * (R_cycl + R_b)
+    dT_max = -SpitzenLast * (R_b + R_max)
+    
+    # Return results
+    return {
+        "q_ews_max": q_ews_max,
+        "P_EWS_max": P_EWS_max,  # Use input P_EWS_max
+        "E_max": E_max,  # Use input E_max
+        "Usage": Usage,  # Add Usage to return values
         "Grundlast": Grundlast,
         "ZyklischeLast": ZyklischeLast,
         "SpitzenLast": SpitzenLast,
