@@ -121,7 +121,7 @@ def calculate_g_function(borehole_field, tmax_years=3000, dt=3600, Nt=50, alpha=
     time.sort()
     
     # Calculate g-function
-    g_function = gt.gfunction.uniform_temperature(borehole_field, time, alpha=alpha)
+    g_function = gt.gfunction.uniform_temperature(borehole_field, time, alpha)
     
     # Find the g-value at ln(t/ts)=2
     ln_t_ts = np.log(time / ts)
