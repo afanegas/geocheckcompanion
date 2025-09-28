@@ -418,7 +418,7 @@ elif st.session_state.current_page == "Manuelle Berechnung":
                 Lambda=Lambda,
                 q_geo=q_geo,
                 GVal=GVal,
-                alpha=alpha,
+                alpha=st.session_state.alpha,
                 E_max=E_max,
                 P_EWS_max=P_EWS_max,
                 r_b=r_b,
@@ -476,10 +476,11 @@ elif st.session_state.current_page == "Manuelle Berechnung":
                 #help="Wärmeleitfähigkeit des Erdreichs",
                 on_change=perform_calculation)
             
-            alpha = st.number_input("Temperaturleitfähigkeit Erdreich (m²/s)", 
+            st.number_input("Temperaturleitfähigkeit Erdreich (m²/s)", 
                 value=st.session_state.get("alpha", 1.0e-6),
                 format="%.2e", 
                 help="Temperaturleitfähigkeit des Untergrunds",
+                key="alpha",
                 on_change=perform_calculation)
 
     with col2:
