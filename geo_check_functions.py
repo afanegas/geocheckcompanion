@@ -133,7 +133,7 @@ def calculate_g_function(borehole_field, tmax_years=3000, dt=3600, Nt=50, alpha=
     
     return time, g_function, g_value_at_target, ts
 
-def geohand_clone(T_surface, EWS_length, EWS_count, Lambda, q_geo, GVal, Usage=1800, r_b=0.075, R_b=0.1, dT_Sole=4, monthly_share=0.16):
+def geohand_clone(T_surface, EWS_length, EWS_count, Lambda, q_geo, GVal, alpha, Usage=1800, r_b=0.075, R_b=0.1, dT_Sole=4, monthly_share=0.16):
     """
     Calculate geothermal parameters for a borehole field based on Geohand-Light and VDI 4640 guidelines.
     
@@ -144,6 +144,7 @@ def geohand_clone(T_surface, EWS_length, EWS_count, Lambda, q_geo, GVal, Usage=1
         Lambda (float): Thermal conductivity of the ground in W/mK
         q_geo (float): Geothermal heat flow in W/m²
         GVal (float): G-function value at ln(t/ts)=2
+        alpha (float): Ground thermal diffusivity in m²/s
         Usage (float, optional): Annual operation hours. Defaults to 1800.
         r_b (float, optional): Borehole radius in meters. Defaults to 0.075.
         R_b (float, optional): Effective borehole thermal resistance in m*K/W. Defaults to 0.1.
@@ -170,7 +171,8 @@ def geohand_clone(T_surface, EWS_length, EWS_count, Lambda, q_geo, GVal, Usage=1
     g_corr = GVal
     R_stat = 1 / (2 * Lambda * math.pi) * g_corr
 
-    Eindring = math.sqrt(Lambda / (2.18 * 1000000) * (8760 * 3600) / math.pi)
+    # Eindring = math.sqrt(Lambda / (2.18 * 1000000) * (8760 * 3600) / math.pi)
+    Eindring = alpha
     R_cycl = 1 / (2 * math.pi * Lambda) * math.sqrt((math.log(2 / (r_b * math.sqrt(2) / Eindring)) - 0.5722)**2 + math.pi**2 / 16)
 
     R_max = 1 / (2 * math.pi * Lambda) * (math.log(math.sqrt(4 * Lambda / (2.18 * 1000000) * 24 * 3600) / r_b) - 0.5722 / 2)
@@ -247,7 +249,7 @@ def geohand_clone(T_surface, EWS_length, EWS_count, Lambda, q_geo, GVal, Usage=1
         "dT_max": dT_max
     }
 
-def geohand_clone_custom(T_surface, EWS_length, EWS_count, Lambda, q_geo, GVal, E_max, P_EWS_max, r_b=0.075, R_b=0.1, dT_Sole=4, monthly_share=0.16):
+def geohand_clone_custom(T_surface, EWS_length, EWS_count, Lambda, q_geo, GVal, alpha, E_max, P_EWS_max, r_b=0.075, R_b=0.1, dT_Sole=4, monthly_share=0.16):
     """
     Custom version of geohand_clone. Calculate geothermal parameters for a borehole field based on Geohand-Light and VDI 4640 guidelines.
     Args:
@@ -257,6 +259,7 @@ def geohand_clone_custom(T_surface, EWS_length, EWS_count, Lambda, q_geo, GVal, 
         Lambda (float): Thermal conductivity of the ground in W/mK
         q_geo (float): Geothermal heat flow in W/m²
         GVal (float): G-function value at ln(t/ts)=2
+        alpha (float): Ground thermal diffusivity in m²/s
         E_max (float): Maximum annual energy extraction in kWh
         P_EWS_max (float): Maximum power of the borehole field in kW
         r_b (float, optional): Borehole radius in meters. Defaults to 0.075.
@@ -284,7 +287,8 @@ def geohand_clone_custom(T_surface, EWS_length, EWS_count, Lambda, q_geo, GVal, 
     g_corr = GVal
     R_stat = 1 / (2 * Lambda * math.pi) * g_corr
 
-    Eindring = math.sqrt(Lambda / (2.18 * 1000000) * (8760 * 3600) / math.pi)
+    #Eindring = math.sqrt(Lambda / (2.18 * 1000000) * (8760 * 3600) / math.pi)
+    Eindring = alpha
     R_cycl = 1 / (2 * math.pi * Lambda) * math.sqrt((math.log(2 / (r_b * math.sqrt(2) / Eindring)) - 0.5722)**2 + math.pi**2 / 16)
 
     R_max = 1 / (2 * math.pi * Lambda) * (math.log(math.sqrt(4 * Lambda / (2.18 * 1000000) * 24 * 3600) / r_b) - 0.5722 / 2)
