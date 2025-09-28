@@ -303,6 +303,9 @@ elif st.session_state.current_page == "Geothermisches Potenzial":
             st.number_input("Wärmeleitfähigkeit (W/mK)", value=st.session_state.Lambda, 
                                 min_value=0.1, step=0.1, help="Wärmeleitfähigkeit des Erdreichs", key="Lambda",
                                 on_change=clear_heat_extraction_results)
+            st.number_input("Temperaturleitfähigkeit Erdreich (m²/s)", value=st.session_state.alpha, 
+                                format="%.2e", help="Temperaturleitfähigkeit des Untergrunds", key="alpha",
+                                on_change=clear_heat_extraction_results)
             st.number_input("Vollaststunden Heizung (h)", value=st.session_state.Usage, 
                                 min_value=100, step=100, 
                                 help="Äquivalente Anzahl der Stunden, die die Anlage mit Nennleistung im Heizbetrieb arbeitet", key="Usage",
@@ -337,7 +340,7 @@ elif st.session_state.current_page == "Geothermisches Potenzial":
         
         # Use a callback to reset the values
         def reset_heat_extraction_values():
-            for key in ["Lambda", "Usage", "monthly_share", "T_surface", "q_geo", "R_b", "dT_Sole"]:
+            for key in ["Lambda", "alpha", "Usage", "monthly_share", "T_surface", "q_geo", "R_b", "dT_Sole"]:
                 if key in st.session_state:
                     del st.session_state[key]
         
@@ -364,6 +367,7 @@ elif st.session_state.current_page == "Geothermisches Potenzial":
                         Lambda=st.session_state.Lambda,
                         q_geo=st.session_state.q_geo,
                         GVal=st.session_state.g_value_at_target,
+                        alpha=st.session_state.alpha,
                         Usage=st.session_state.Usage,
                         r_b=st.session_state.r_b,
                         R_b=st.session_state.R_b,
@@ -414,6 +418,7 @@ elif st.session_state.current_page == "Manuelle Berechnung":
                 Lambda=Lambda,
                 q_geo=q_geo,
                 GVal=GVal,
+                alpha=alpha,
                 E_max=E_max,
                 P_EWS_max=P_EWS_max,
                 r_b=r_b,
@@ -469,6 +474,12 @@ elif st.session_state.current_page == "Manuelle Berechnung":
                 value=st.session_state.get("Lambda", 2.5),
                 min_value=0.1, step=0.1,
                 #help="Wärmeleitfähigkeit des Erdreichs",
+                on_change=perform_calculation)
+            
+            alpha = st.number_input("Temperaturleitfähigkeit Erdreich (m²/s)", 
+                value=st.session_state.get("alpha", 1.0e-6),
+                format="%.2e", 
+                help="Temperaturleitfähigkeit des Untergrunds",
                 on_change=perform_calculation)
 
     with col2:
